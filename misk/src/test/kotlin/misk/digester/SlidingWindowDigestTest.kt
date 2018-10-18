@@ -6,9 +6,10 @@ import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+
 class SlidingWindowDigestTest {
-  //this clock is immutable. SlidingWindowDigest holds a reference to it. Is there another clock that can do this?
-  var baseClock: Clock = Clock.fixed(Instant.now(), ZoneId.of("UTC"))
+  private val baseClock: Clock = Clock.fixed(Instant.now(), ZoneId.of("UTC"))
+
   @Test
   fun testSlidingWindowDigestEmpty() {
     val digest = newSlidingWindowDigestTest()
@@ -18,6 +19,7 @@ class SlidingWindowDigestTest {
     Assertions.assertThat(digest.quantile(0.5)).isEqualTo(Double.NaN)
     expectQuantiles(digest, 0, Double.NaN, emptyMap())
   }
+
   @Test
   fun testSlidingWindowDigestObservation() {
     val digest = newSlidingWindowDigestTest()
@@ -43,6 +45,7 @@ class SlidingWindowDigestTest {
             0.25 to 30.0,
             0.5 to 30.0))
   }
+
   @Test
   fun testSlidingWindowDigestObservationInMultipleWindows() {
     val digest = newSlidingWindowDigestTest()
@@ -66,6 +69,7 @@ class SlidingWindowDigestTest {
             newWindowDigest(windowsT3_5[1], listOf(30.0))
         ))
   }
+
   @Test
   fun testSlidingWindowDigestClosedDigests() {
     val digest = newSlidingWindowDigestTest()
@@ -75,41 +79,46 @@ class SlidingWindowDigestTest {
     expectWindowDigests(digest.closedDigests(windows[2].end), listOf(
         newWindowDigest(windows[2], listOf(10.0))
     ))
-    expectWindowDigests(digest.closedDigests(windows[1].end.plusNanos(1)),listOf(
+    expectWindowDigests(digest.closedDigests(windows[1].end.plusNanos(1)), listOf(
         newWindowDigest(windows[2], listOf(10.0))
     ))
     expectWindowDigests(digest.closedDigests(windows[1].end), listOf(
         newWindowDigest(windows[1], listOf(10.0)),
         newWindowDigest(windows[2], listOf(10.0))
     ))
-    expectWindowDigests(digest.closedDigests(windows[0].end.minusNanos(0)),listOf(
+    expectWindowDigests(digest.closedDigests(windows[0].end.minusNanos(0)), listOf(
         newWindowDigest(windows[0], listOf(10.0)),
         newWindowDigest(windows[1], listOf(10.0)),
         newWindowDigest(windows[2], listOf(10.0))
     ))
   }
+
   @Test
   fun testSlidingWindowDigestMergeInEmptyToEmpty() {
     val src = newSlidingWindowDigestTest()
     val dest = newSlidingWindowDigestTest()
     advanceWindows(3, src)
     advanceWindows(3, dest)
-    dest.mergeIn(src.closedDigests(ZonedDateTime.ofInstant(src.utcNowClock.instant(), ZoneId.of("UTC"))))
+    dest.mergeIn(
+        src.closedDigests(ZonedDateTime.ofInstant(src.utcNowClock.instant(), ZoneId.of("UTC"))))
     Assertions.assertThat(dest.windows.count()).isEqualTo(0)
   }
+
   @Test
   fun testSlidingWindowDigestMergeInEmptyToValues() {
     val src = newSlidingWindowDigestTest()
     val dest = newSlidingWindowDigestTest()
     val windowsT0_2 = windows(dest)
     dest.observe(10.0)
-    dest.mergeIn(src.closedDigests(ZonedDateTime.ofInstant(src.utcNowClock.instant(), ZoneId.of("UTC"))))
+    dest.mergeIn(
+        src.closedDigests(ZonedDateTime.ofInstant(src.utcNowClock.instant(), ZoneId.of("UTC"))))
     expectWindowDigests(dest.windows, listOf(
         newWindowDigest(windowsT0_2[0], listOf(10.0)),
         newWindowDigest(windowsT0_2[1], listOf(10.0)),
         newWindowDigest(windowsT0_2[2], listOf(10.0))
     ))
   }
+
   @Test
   fun testSlidingWindowDigestMergeInValuesToValues() {
     val src = newSlidingWindowDigestTest()
@@ -133,12 +142,14 @@ class SlidingWindowDigestTest {
         newWindowDigest(windowsT3_5[2], listOf(200.0)
         )))
   }
+
   @Test
   fun testSlidingWindowDigestGC() {
     val digest = newSlidingWindowDigestTest()
     digest.observe(10.0)
     // Move just past the threshold for collecting the last window
-    digest.utcNowClock = Clock.fixed(windows(digest)[2].end.plusMinutes(1).plusNanos(1).toInstant(), ZoneId.of("UTC"))
+    digest.utcNowClock = Clock.fixed(windows(digest)[2].end.plusMinutes(1).plusNanos(1).toInstant(),
+        ZoneId.of("UTC"))
     digest.observe(20.0)
     val windows = windows(digest)
     expectWindowDigests(digest.windows, listOf(
@@ -147,37 +158,41 @@ class SlidingWindowDigestTest {
         newWindowDigest(windows[2], listOf(20.0))
     ))
   }
+
   fun setClock(t: ZonedDateTime, digest: SlidingWindowDigest) {
     require(!t.toInstant().isBefore(digest.utcNowClock.instant())) {
       "Cannot go back in time"
     }
-    //todo: is there a better way to do this? two sources of truth
-    //testClock = Clock.fixed(t.toInstant(), ZoneId.of("UTC"))
-    //digest.utcNowClock = testClock
+
     digest.utcNowClock = Clock.fixed(t.toInstant(), ZoneId.of("UTC"))
   }
+
   fun windows(slidingWindow: SlidingWindowDigest): List<Window> {
     return slidingWindow.windower.windowsContaining(
         ZonedDateTime.ofInstant(slidingWindow.utcNowClock.instant(), ZoneId.of("UTC")))
   }
+
   fun advanceWindows(n: Int, digest: SlidingWindowDigest): List<Window> {
     repeat(n) {
       setClock(windows(digest)[0].end, digest)
     }
     return windows(digest)
   }
+
   fun newWindowDigest(window: Window, values: List<Double>): WindowDigest {
     return WindowDigest(
         window,
         FakeDigest(values)
     )
   }
+
   fun newSlidingWindowDigestTest(): SlidingWindowDigest {
     return SlidingWindowDigest(
         baseClock,
         Windower(10, 3)
     )
   }
+
   fun expectWindowDigests(actual: List<WindowDigest>, expected: List<WindowDigest>) {
     Assertions.assertThat(expected.count()).isEqualTo(actual.count())
     for (i in 0 until actual.count()) {
@@ -191,6 +206,7 @@ class SlidingWindowDigestTest {
           .isEqualTo((expected[i].Digest as FakeDigest).addedValues)
     }
   }
+
   fun expectQuantiles(
     digest: SlidingWindowDigest,
     count: Long,
@@ -204,6 +220,7 @@ class SlidingWindowDigestTest {
       assertEqualish(quantileVals[q], snapshot.quantileVals[i])
     }
   }
+
   fun assertEqualish(a: Double?, b: Double?) {
     if (a == Double.NaN) {
       Assertions.assertThat(b).isEqualTo(Double.NaN)
