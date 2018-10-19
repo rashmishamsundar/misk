@@ -5,7 +5,12 @@ import com.squareup.digester.protos.service.DigestData
 /**
  * Wraps an adapted t-digest implementation from Stripe's Veneur project
  */
-class FakeDigest : TDigest {
+class FakeDigest : TDigest<FakeDigest> {
+
+  internal val addedValues: MutableList<Double>
+  private var count: Long = 0
+  private var sum: Double = 0.0
+
   constructor() {
     addedValues = mutableListOf()
   }
@@ -14,9 +19,6 @@ class FakeDigest : TDigest {
     addedValues = values.toMutableList()
   }
 
-  internal val addedValues: MutableList<Double>
-  private var count: Long = 0
-  private var sum: Double = 0.0
   /** Adds a new observation to the t-digest */
   override fun add(value: Double) {
     addedValues.add(value)
@@ -45,10 +47,7 @@ class FakeDigest : TDigest {
   }
 
   /** Merges this t-digest into another t-digest */
-  override fun mergeInto(other: TDigest) {
-    require(other is FakeDigest) {
-      "FakeDigest type required as argument for mergeInto"
-    }
+  override fun mergeInto(other:  TDigest<FakeDigest>) {
     (other as FakeDigest).addedValues.addAll(addedValues)
     other.count += count
     other.sum += sum

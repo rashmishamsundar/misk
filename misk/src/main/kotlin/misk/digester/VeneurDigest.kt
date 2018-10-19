@@ -7,7 +7,7 @@ import okio.ByteString.Companion.toByteString
 /**
  * Wraps an adapted t-digest implementation from Stripe's Veneur project
  */
-class VeneurDigest: TDigest {
+class VeneurDigest: TDigest<VeneurDigest> {
 
   private val mergingDigest: MergingDigest
   private var count: Long = 0
@@ -65,10 +65,7 @@ class VeneurDigest: TDigest {
   }
 
   /** Merges this t-digest into another t-digest */
-  override fun mergeInto(other: TDigest) {
-    require (other is VeneurDigest) {
-      "VeneurDigest type required as mergeInto argument"
-    }
+  override fun mergeInto(other: TDigest<VeneurDigest>) {
     (other as VeneurDigest).mergingDigest.mergeFrom(mergingDigest)
     other.count += count
     other.sum += sum

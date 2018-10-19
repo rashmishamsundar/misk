@@ -5,15 +5,15 @@ import java.time.ZonedDateTime
 
 /** WindowDigest holds a t-digest whose data points are scoped to a specific time window. */
 data class WindowDigest(
-  var window: Window,
-  var Digest: TDigest
+  val window: Window,
+  val Digest: TDigest<FakeDigest>
 )
 
 /** Snapshot is the state of a SlidingWindowDigest at a point in time. */
 data class Snapshot(
-  var quantileVals: DoubleArray,  // Values of specific quantiles.
-  var count: Long,                // Count of observations.
-  var sum: Double                 // Sum of observations.
+  val quantileVals: DoubleArray,  // Values of specific quantiles.
+  val count: Long,                // Count of observations.
+  val sum: Double                 // Sum of observations.
 )
 
 /**
@@ -37,7 +37,7 @@ class SlidingWindowDigest constructor(
   internal val windower: Windower
 ) {
 
-  internal var windows: MutableList<WindowDigest> = mutableListOf()
+  internal val windows: MutableList<WindowDigest> = mutableListOf()
   /**
    * Adds the given value to all currently open t-openDigests.
    * It is important to note that an observed value is not immediately
@@ -56,11 +56,12 @@ class SlidingWindowDigest constructor(
    */
   @Synchronized fun quantile(quantile: Double): Double {
     val now = ZonedDateTime.now(utcNowClock)
-    for (i in windows.count() - 1 downTo 0) {
-      if (!now.isBefore(windows[i].window.end)) {
-        return windows[i].Digest.quantile(quantile)
+    for (window in windows.reversed()) {
+      if (!now.isBefore(window.window.end)) {
+        return window.Digest.quantile(quantile)
       }
     }
+
     return Double.NaN
   }
 
@@ -133,24 +134,15 @@ class SlidingWindowDigest constructor(
         wd.Digest.mergeInto(newDigest.Digest)
       }
     }
-    windows = windows.asSequence().sortedWith(compareBy { it.window.start }).toMutableList()
+    windows.sortBy { it.window.start }
   }
 
   /** Deletes openDigests with windows that ended more than 1 minute ago. */
   private fun deleteOlderDigests() {
     val now = ZonedDateTime.now(utcNowClock)
     val deleteBefore = now.minusMinutes(1)
-    var firstIndex = 0
-    for (window in windows) {
-      if (deleteBefore.isAfter(window.window.end)) {
-        firstIndex++
-      } else {
-        break
-      }
-    }
-    if (firstIndex > 0) {
-      windows = windows.subList(firstIndex, windows.count())
-    }
+
+    windows.retainAll { !deleteBefore.isAfter(it.window.end) }
   }
 
   /**
@@ -176,13 +168,14 @@ class SlidingWindowDigest constructor(
       if (!found) {
         val newDigest = WindowDigest(
             newWindow,
-            FakeDigest() 
+            FakeDigest()
         )
         windows.add(newDigest)
         digests.add(newDigest)
       }
     }
-    windows = windows.asSequence().sortedWith(compareBy { it.window.start }).toMutableList()
+
+    windows.sortBy { it.window.start }
     return digests
   }
 }
