@@ -25,7 +25,7 @@ interface TDigest<T : TDigest<T>> {
    * MergeInto merges the data in this digest into the other digest.
    * The other digest is mutated and must be of the same TDigest type.
    */
-  fun mergeInto(other: TDigest<T>)
+  fun mergeInto(other: TDigest<*>)
 
   /** Proto returns a representation of the t-digest that can be later reconstituted into an instance of the same type. */
   fun proto(): DigestData

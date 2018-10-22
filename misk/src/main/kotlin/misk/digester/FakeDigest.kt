@@ -47,7 +47,7 @@ class FakeDigest : TDigest<FakeDigest> {
   }
 
   /** Merges this t-digest into another t-digest */
-  override fun mergeInto(other:  TDigest<FakeDigest>) {
+  override fun mergeInto(other:  TDigest<*>) {
     (other as FakeDigest).addedValues.addAll(addedValues)
     other.count += count
     other.sum += sum

@@ -189,7 +189,8 @@ class SlidingWindowDigestTest {
   fun newSlidingWindowDigestTest(): SlidingWindowDigest {
     return SlidingWindowDigest(
         baseClock,
-        Windower(10, 3)
+        Windower(10, 3),
+        fun() = FakeDigest()
     )
   }
 

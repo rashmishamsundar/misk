@@ -6,7 +6,7 @@ import java.time.ZonedDateTime
 /** WindowDigest holds a t-digest whose data points are scoped to a specific time window. */
 data class WindowDigest(
   val window: Window,
-  val Digest: TDigest<FakeDigest>
+  val Digest: TDigest<*>
 )
 
 /** Snapshot is the state of a SlidingWindowDigest at a point in time. */
@@ -34,7 +34,8 @@ data class Snapshot(
  */
 class SlidingWindowDigest constructor(
   internal var utcNowClock: Clock,
-  internal val windower: Windower
+  internal val windower: Windower,
+  internal val tDigest: ()-> TDigest<*>
 ) {
 
   internal val windows: MutableList<WindowDigest> = mutableListOf()
@@ -128,7 +129,7 @@ class SlidingWindowDigest constructor(
       if (!found) {
         val newDigest = WindowDigest(
             wd.window,
-            FakeDigest() //should this be some kind of custom new tDigest function?
+            tDigest()
         )
         windows.add(newDigest)
         wd.Digest.mergeInto(newDigest.Digest)
@@ -168,7 +169,7 @@ class SlidingWindowDigest constructor(
       if (!found) {
         val newDigest = WindowDigest(
             newWindow,
-            FakeDigest()
+            tDigest()
         )
         windows.add(newDigest)
         digests.add(newDigest)
