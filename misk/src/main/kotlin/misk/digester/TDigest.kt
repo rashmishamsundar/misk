@@ -3,7 +3,7 @@ package misk.digester
 import com.squareup.digester.protos.service.DigestData
 
 /** TDigest abstract common methods for t-digest implementations */
-interface TDigest<T : TDigest<T>> {
+interface TDigest<T : TDigest<T>>{
 
   /** Adds an observed value to the digest. */
   fun add(value: Double)
@@ -25,7 +25,7 @@ interface TDigest<T : TDigest<T>> {
    * MergeInto merges the data in this digest into the other digest.
    * The other digest is mutated and must be of the same TDigest type.
    */
-  fun mergeInto(other: TDigest<*>)
+  fun mergeInto(other: T)
 
   /** Proto returns a representation of the t-digest that can be later reconstituted into an instance of the same type. */
   fun proto(): DigestData

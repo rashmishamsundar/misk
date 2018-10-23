@@ -65,8 +65,8 @@ class VeneurDigest: TDigest<VeneurDigest> {
   }
 
   /** Merges this t-digest into another t-digest */
-  override fun mergeInto(other: TDigest<*>) {
-    (other as VeneurDigest).mergingDigest.mergeFrom(mergingDigest)
+  override fun mergeInto(other: VeneurDigest) {
+    other.mergingDigest.mergeFrom(mergingDigest)
     other.count += count
     other.sum += sum
   }

@@ -1,6 +1,6 @@
 package misk.digester
 
-import org.assertj.core.api.Assertions
+import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
 import java.time.Clock
 import java.time.Instant
@@ -13,10 +13,10 @@ class SlidingWindowDigestTest {
   @Test
   fun testSlidingWindowDigestEmpty() {
     val digest = newSlidingWindowDigestTest()
-    Assertions.assertThat(digest.quantile(0.5)).isEqualTo(Double.NaN)
+    assertThat(digest.quantile(0.5)).isEqualTo(Double.NaN)
     expectQuantiles(digest, 0, Double.NaN, emptyMap())
     advanceWindows(1, digest)
-    Assertions.assertThat(digest.quantile(0.5)).isEqualTo(Double.NaN)
+    assertThat(digest.quantile(0.5)).isEqualTo(Double.NaN)
     expectQuantiles(digest, 0, Double.NaN, emptyMap())
   }
 
@@ -36,10 +36,10 @@ class SlidingWindowDigestTest {
         )
     )
     // No windows have closed yet so there is no reportable data yet
-    Assertions.assertThat(digest.quantile(0.5)).isEqualTo(Double.NaN)
+    assertThat(digest.quantile(0.5)).isEqualTo(Double.NaN)
     // Advance time so that one window is now closed
     advanceWindows(1, digest)
-    Assertions.assertThat(digest.quantile(0.5)).isEqualTo(30.0)
+    assertThat(digest.quantile(0.5)).isEqualTo(30.0)
     expectQuantiles(digest, 3, 60.0,
         mapOf(
             0.25 to 30.0,
@@ -53,12 +53,12 @@ class SlidingWindowDigestTest {
     digest.observe(10.0) // in t0-t2 buckets
     advanceWindows(1, digest)
     digest.observe(20.0) // in t1-t3 buckets
-    Assertions.assertThat(digest.quantile(0.5)).isEqualTo(10.0)
+    assertThat(digest.quantile(0.5)).isEqualTo(10.0)
     advanceWindows(1, digest)
     digest.observe(30.0) // in t2-t4 buckets
-    Assertions.assertThat(digest.quantile(0.5)).isEqualTo(20.0)
+    assertThat(digest.quantile(0.5)).isEqualTo(20.0)
     val windowsT3_5 = advanceWindows(1, digest)
-    Assertions.assertThat(digest.quantile(0.5)).isEqualTo(30.0)
+    assertThat(digest.quantile(0.5)).isEqualTo(30.0)
     expectWindowDigests(
         digest.windows,
         listOf(
@@ -101,7 +101,7 @@ class SlidingWindowDigestTest {
     advanceWindows(3, dest)
     dest.mergeIn(
         src.closedDigests(ZonedDateTime.ofInstant(src.utcNowClock.instant(), ZoneId.of("UTC"))))
-    Assertions.assertThat(dest.windows.count()).isEqualTo(0)
+    assertThat(dest.windows.count()).isEqualTo(0)
   }
 
   @Test
@@ -130,7 +130,7 @@ class SlidingWindowDigestTest {
     advanceWindows(3, src)
     advanceWindows(1, dest)
     dest.observe(10.0) // in t1-t3 buckets
-    Assertions.assertThat(dest.openDigests(false).count()).isEqualTo(3)
+    assertThat(dest.openDigests(false).count()).isEqualTo(3)
     dest.utcNowClock = src.utcNowClock
     dest.mergeIn(src.closedDigests(windowsT0_2[0].end))
     expectWindowDigests(dest.windows, listOf(
@@ -159,7 +159,7 @@ class SlidingWindowDigestTest {
     ))
   }
 
-  fun setClock(t: ZonedDateTime, digest: SlidingWindowDigest) {
+  fun setClock(t: ZonedDateTime, digest: SlidingWindowDigest<FakeDigest>) {
     require(!t.toInstant().isBefore(digest.utcNowClock.instant())) {
       "Cannot go back in time"
     }
@@ -167,26 +167,26 @@ class SlidingWindowDigestTest {
     digest.utcNowClock = Clock.fixed(t.toInstant(), ZoneId.of("UTC"))
   }
 
-  fun windows(slidingWindow: SlidingWindowDigest): List<Window> {
+  fun windows(slidingWindow: SlidingWindowDigest<FakeDigest>): List<Window> {
     return slidingWindow.windower.windowsContaining(
         ZonedDateTime.ofInstant(slidingWindow.utcNowClock.instant(), ZoneId.of("UTC")))
   }
 
-  fun advanceWindows(n: Int, digest: SlidingWindowDigest): List<Window> {
+  fun advanceWindows(n: Int, digest: SlidingWindowDigest<FakeDigest>): List<Window> {
     repeat(n) {
       setClock(windows(digest)[0].end, digest)
     }
     return windows(digest)
   }
 
-  fun newWindowDigest(window: Window, values: List<Double>): WindowDigest {
+  fun newWindowDigest(window: Window, values: List<Double>): WindowDigest<FakeDigest> {
     return WindowDigest(
         window,
         FakeDigest(values)
     )
   }
 
-  fun newSlidingWindowDigestTest(): SlidingWindowDigest {
+  fun newSlidingWindowDigestTest(): SlidingWindowDigest<FakeDigest> {
     return SlidingWindowDigest(
         baseClock,
         Windower(10, 3),
@@ -194,39 +194,41 @@ class SlidingWindowDigestTest {
     )
   }
 
-  fun expectWindowDigests(actual: List<WindowDigest>, expected: List<WindowDigest>) {
-    Assertions.assertThat(expected.count()).isEqualTo(actual.count())
+  fun expectWindowDigests(
+    actual: List<WindowDigest<FakeDigest>>,
+    expected: List<WindowDigest<FakeDigest>>
+  ) {
+    assertThat(expected.count()).isEqualTo(actual.count())
     for (i in 0 until actual.count()) {
       if (i >= expected.count()) {
         break
       }
       //Compare window of each WindowDigest
-      Assertions.assertThat(actual[i].window).isEqualTo(expected[i].window)
+      assertThat(actual[i].window).isEqualTo(expected[i].window)
       //Compare all values added within TDigest of each WindowDigest
-      Assertions.assertThat((actual[i].Digest as FakeDigest).addedValues)
-          .isEqualTo((expected[i].Digest as FakeDigest).addedValues)
+      assertThat(actual[i].Digest.addedValues).isEqualTo(expected[i].Digest.addedValues)
     }
   }
 
   fun expectQuantiles(
-    digest: SlidingWindowDigest,
+    digest: SlidingWindowDigest<FakeDigest>,
     count: Long,
     sum: Double,
     quantileVals: Map<Double, Double>
   ) {
     val snapshot = digest.snapshot(quantileVals.keys.toList()) //should this be keys or values?
-    Assertions.assertThat(snapshot.count).isEqualTo(count)
+    assertThat(snapshot.count).isEqualTo(count)
     assertEqualish(sum, snapshot.sum)
     quantileVals.keys.forEachIndexed { i, q ->
       assertEqualish(quantileVals[q], snapshot.quantileVals[i])
     }
   }
 
-  fun assertEqualish(a: Double?, b: Double?) {
+  fun assertEqualish(a: Double?, b: Double) {
     if (a == Double.NaN) {
-      Assertions.assertThat(b).isEqualTo(Double.NaN)
+      assertThat(b).isNaN()
     } else {
-      Assertions.assertThat(a).isEqualTo(b)
+      assertThat(a).isEqualTo(b)
     }
   }
 }
