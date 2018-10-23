@@ -188,9 +188,9 @@ class SlidingWindowDigestTest {
 
   fun newSlidingWindowDigestTest(): SlidingWindowDigest<FakeDigest> {
     return SlidingWindowDigest(
-        baseClock,
         Windower(10, 3),
-        fun() = FakeDigest()
+        fun() = FakeDigest(),
+        baseClock
     )
   }
 
@@ -203,9 +203,9 @@ class SlidingWindowDigestTest {
       if (i >= expected.count()) {
         break
       }
-      //Compare window of each WindowDigest
+      // Compare window of each WindowDigest
       assertThat(actual[i].window).isEqualTo(expected[i].window)
-      //Compare all values added within TDigest of each WindowDigest
+      // Compare all values added within TDigest of each WindowDigest
       assertThat(actual[i].Digest.addedValues).isEqualTo(expected[i].Digest.addedValues)
     }
   }
@@ -216,7 +216,7 @@ class SlidingWindowDigestTest {
     sum: Double,
     quantileVals: Map<Double, Double>
   ) {
-    val snapshot = digest.snapshot(quantileVals.keys.toList()) //should this be keys or values?
+    val snapshot = digest.snapshot(quantileVals.keys.toList())
     assertThat(snapshot.count).isEqualTo(count)
     assertEqualish(sum, snapshot.sum)
     quantileVals.keys.forEachIndexed { i, q ->

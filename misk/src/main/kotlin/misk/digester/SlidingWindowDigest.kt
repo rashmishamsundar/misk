@@ -33,9 +33,9 @@ data class Snapshot(
  * NewSlidingWindowDigest(time.Now, NewDefaultVeneurDigest, NewWindower(10, 2))
  */
 class SlidingWindowDigest<T : TDigest<T>> constructor(
-  internal var utcNowClock: Clock,
   internal val windower: Windower,
-  internal val tDigest: () -> T
+  internal val tDigest: () -> T,
+  internal var utcNowClock: Clock = Clock.systemUTC()
 ) {
 
   internal val windows: MutableList<WindowDigest<T>> = mutableListOf()
