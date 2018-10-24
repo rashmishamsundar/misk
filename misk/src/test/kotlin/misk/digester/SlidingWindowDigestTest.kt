@@ -11,7 +11,7 @@ class SlidingWindowDigestTest {
   private val baseClock: Clock = Clock.fixed(Instant.now(), ZoneId.of("UTC"))
 
   @Test
-  fun testSlidingWindowDigestEmpty() {
+  fun slidingWindowDigestEmpty() {
     val digest = newSlidingWindowDigestTest()
     assertThat(digest.quantile(0.5)).isEqualTo(Double.NaN)
     expectQuantiles(digest, 0, Double.NaN, emptyMap())
@@ -21,7 +21,7 @@ class SlidingWindowDigestTest {
   }
 
   @Test
-  fun testSlidingWindowDigestObservation() {
+  fun slidingWindowDigestObservation() {
     val digest = newSlidingWindowDigestTest()
     digest.observe(10.0)
     digest.observe(20.0)
@@ -47,7 +47,7 @@ class SlidingWindowDigestTest {
   }
 
   @Test
-  fun testSlidingWindowDigestObservationInMultipleWindows() {
+  fun slidingWindowDigestObservationInMultipleWindows() {
     val digest = newSlidingWindowDigestTest()
     val windowsT0_2 = windows(digest)
     digest.observe(10.0) // in t0-t2 buckets
@@ -71,7 +71,7 @@ class SlidingWindowDigestTest {
   }
 
   @Test
-  fun testSlidingWindowDigestClosedDigests() {
+  fun slidingWindowDigestClosedDigests() {
     val digest = newSlidingWindowDigestTest()
     val windows = windows(digest)
     digest.observe(10.0)
@@ -94,7 +94,7 @@ class SlidingWindowDigestTest {
   }
 
   @Test
-  fun testSlidingWindowDigestMergeInEmptyToEmpty() {
+  fun slidingWindowDigestMergeInEmptyToEmpty() {
     val src = newSlidingWindowDigestTest()
     val dest = newSlidingWindowDigestTest()
     advanceWindows(3, src)
@@ -105,7 +105,7 @@ class SlidingWindowDigestTest {
   }
 
   @Test
-  fun testSlidingWindowDigestMergeInEmptyToValues() {
+  fun slidingWindowDigestMergeInEmptyToValues() {
     val src = newSlidingWindowDigestTest()
     val dest = newSlidingWindowDigestTest()
     val windowsT0_2 = windows(dest)
@@ -120,7 +120,7 @@ class SlidingWindowDigestTest {
   }
 
   @Test
-  fun testSlidingWindowDigestMergeInValuesToValues() {
+  fun slidingWindowDigestMergeInValuesToValues() {
     val src = newSlidingWindowDigestTest()
     val dest = newSlidingWindowDigestTest()
     val windowsT0_2 = windows(src)
@@ -144,7 +144,7 @@ class SlidingWindowDigestTest {
   }
 
   @Test
-  fun testSlidingWindowDigestGC() {
+  fun slidingWindowDigestGC() {
     val digest = newSlidingWindowDigestTest()
     digest.observe(10.0)
     // Move just past the threshold for collecting the last window

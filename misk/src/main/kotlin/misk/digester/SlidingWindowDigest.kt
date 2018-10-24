@@ -11,9 +11,9 @@ data class WindowDigest<T : TDigest<T>>(
 
 /** Snapshot is the state of a SlidingWindowDigest at a point in time. */
 data class Snapshot(
-  val quantileVals: DoubleArray,  // Values of specific quantiles.
-  val count: Long,                // Count of observations.
-  val sum: Double                 // Sum of observations.
+  val quantileVals: List<Double>,  // Values of specific quantiles.
+  val count: Long,                 // Count of observations.
+  val sum: Double                  // Sum of observations.
 )
 
 /**
@@ -26,11 +26,11 @@ data class Snapshot(
  *
  * The following example creates a 1 minute sliding window where there are 6 overlapping windows at a given time.
  * Reported quantiles are at most 10 seconds out of date.
- * NewSlidingWindowDigest(time.Now, NewDefaultVeneurDigest, NewWindower(60, 6))
+ * SlidingWindowDigest(Windower(60, 6),  fun() = VeneurDigest())
  *
  * The following example creates a 10 second sliding window where there are 2 overlapping windows at a given time.
  * Reported quantiles are at most 5 seconds out of date:
- * NewSlidingWindowDigest(time.Now, NewDefaultVeneurDigest, NewWindower(10, 2))
+ * NewSlidingWindowDigest(Windower(10, 2),  fun() = VeneurDigest())
  */
 class SlidingWindowDigest<T : TDigest<T>> constructor(
   internal val windower: Windower,
@@ -69,7 +69,7 @@ class SlidingWindowDigest<T : TDigest<T>> constructor(
   /**
    * Returns a snapshot of estimated values for quantiles, along with the count of observations and their sum.
    * The returned values may not include recent observations due to how sliding windows are approximated.
-   * If no data has been observed then a slice of NaNs of having len(quantiles) is returned and NaN is returned for the sum.
+   * If no data has been observed then a slice of NaNs of having quantiles.count() is returned and NaN is returned for the sum.
    */
   @Synchronized fun snapshot(quantiles: List<Double>): Snapshot {
     val now = ZonedDateTime.now(utcNowClock)
@@ -81,14 +81,14 @@ class SlidingWindowDigest<T : TDigest<T>> constructor(
           quantileVals[ii] = digest.quantile(quantile)
         }
         return Snapshot(
-            quantileVals,
+            quantileVals.toList(),
             digest.count(),
             digest.sum()
         )
       }
     }
     return Snapshot(
-        DoubleArray(quantiles.count()) { Double.NaN },
+        DoubleArray(quantiles.count()) { Double.NaN }.toList(),
         0,
         Double.NaN
     )
@@ -100,13 +100,7 @@ class SlidingWindowDigest<T : TDigest<T>> constructor(
    */
   @Synchronized fun closedDigests(from: ZonedDateTime): List<WindowDigest<T>> {
     deleteOlderDigests()
-    val wds: MutableList<WindowDigest<T>> = mutableListOf()
-    for (wd in windows) {
-      if (!from.isAfter(wd.window.end)) {
-        wds.add(wd)
-      }
-    }
-    return wds.toList()
+    return windows.filter { !from.isAfter(it.window.end) }
   }
 
   /**
@@ -120,7 +114,7 @@ class SlidingWindowDigest<T : TDigest<T>> constructor(
     for (wd in windowDigests) {
       var found = false
       for (existing in windows) {
-        if (existing.window.equals(wd.window)) {
+        if (existing.window == wd.window) {
           wd.Digest.mergeInto(existing.Digest)
           found = true
           break
@@ -160,7 +154,7 @@ class SlidingWindowDigest<T : TDigest<T>> constructor(
     for (newWindow in localWindows) {
       var found = false
       for (existingWindow in windows) {
-        if (existingWindow.window.equals(newWindow)) {
+        if (existingWindow.window == newWindow) {
           found = true
           digests.add(existingWindow)
           break
