@@ -6,7 +6,7 @@ import java.time.ZonedDateTime
 /** WindowDigest holds a t-digest whose data points are scoped to a specific time window. */
 data class WindowDigest<T : TDigest<T>>(
   val window: Window,
-  val Digest: T
+  val digest: T
 )
 
 /** Snapshot is the state of a SlidingWindowDigest at a point in time. */
@@ -46,7 +46,7 @@ class SlidingWindowDigest<T : TDigest<T>> constructor(
    */
   @Synchronized fun observe(value: Double) {
     for (digest in openDigests(true)) {
-      digest.Digest.add(value)
+      digest.digest.add(value)
     }
   }
 
@@ -59,7 +59,7 @@ class SlidingWindowDigest<T : TDigest<T>> constructor(
     val now = ZonedDateTime.now(utcNowClock)
     for (i in windows.count() - 1 downTo 0) {
       if (!now.isBefore(windows[i].window.end)) {
-        return windows[i].Digest.quantile(quantile)
+        return windows[i].digest.quantile(quantile)
       }
     }
 
@@ -76,7 +76,7 @@ class SlidingWindowDigest<T : TDigest<T>> constructor(
     for (i in windows.count() - 1 downTo 0) {
       if (!now.isBefore(windows[i].window.end)) {
         val quantileVals = DoubleArray(quantiles.count()) { Double.NaN }
-        val digest = windows[i].Digest
+        val digest = windows[i].digest
         quantiles.forEachIndexed { ii, quantile ->
           quantileVals[ii] = digest.quantile(quantile)
         }
@@ -115,7 +115,7 @@ class SlidingWindowDigest<T : TDigest<T>> constructor(
       var found = false
       for (existing in windows) {
         if (existing.window == wd.window) {
-          wd.Digest.mergeInto(existing.Digest)
+          wd.digest.mergeInto(existing.digest)
           found = true
           break
         }
@@ -126,7 +126,7 @@ class SlidingWindowDigest<T : TDigest<T>> constructor(
             tDigest()
         )
         windows.add(newDigest)
-        wd.Digest.mergeInto(newDigest.Digest)
+        wd.digest.mergeInto(newDigest.digest)
       }
     }
     windows.sortBy { it.window.start }

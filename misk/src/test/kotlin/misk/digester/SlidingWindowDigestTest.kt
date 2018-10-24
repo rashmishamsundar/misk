@@ -206,7 +206,7 @@ class SlidingWindowDigestTest {
       // Compare window of each WindowDigest
       assertThat(actual[i].window).isEqualTo(expected[i].window)
       // Compare all values added within TDigest of each WindowDigest
-      assertThat(actual[i].Digest.addedValues).isEqualTo(expected[i].Digest.addedValues)
+      assertThat(actual[i].digest.addedValues).isEqualTo(expected[i].digest.addedValues)
     }
   }
 
