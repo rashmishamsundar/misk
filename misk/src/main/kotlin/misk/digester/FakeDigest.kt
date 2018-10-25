@@ -3,7 +3,7 @@ package misk.digester
 import com.squareup.digester.protos.service.DigestData
 
 /**
- * Wraps an adapted t-digest implementation from Stripe's Veneur project
+ * Simulates VeneurDigest for testing purposes
  */
 class FakeDigest : TDigest<FakeDigest> {
 
@@ -22,15 +22,12 @@ class FakeDigest : TDigest<FakeDigest> {
   /** Adds a new observation to the t-digest */
   override fun add(value: Double) {
     addedValues.add(value)
-    count += 1
+    count++
     sum += value
   }
 
   override fun quantile(quantile: Double): Double {
-    if (addedValues.count() > 0) {
-      return addedValues.last()
-    }
-    return Double.NaN
+    return addedValues.lastOrNull() ?: Double.NaN
   }
 
   /** Returns the count of the number of observations recorded within the t-digest */

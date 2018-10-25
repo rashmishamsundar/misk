@@ -35,7 +35,7 @@ data class Snapshot(
 class SlidingWindowDigest<T : TDigest<T>> constructor(
   internal val windower: Windower,
   internal val tDigest: () -> T,
-  internal var utcNowClock: Clock = Clock.systemUTC()
+  private val utcNowClock: Clock = Clock.systemUTC()
 ) {
 
   internal val windows: MutableList<WindowDigest<T>> = mutableListOf()
@@ -80,11 +80,7 @@ class SlidingWindowDigest<T : TDigest<T>> constructor(
         quantiles.forEachIndexed { ii, quantile ->
           quantileVals[ii] = digest.quantile(quantile)
         }
-        return Snapshot(
-            quantileVals.toList(),
-            digest.count(),
-            digest.sum()
-        )
+        return Snapshot(quantileVals.toList(), digest.count(), digest.sum())
       }
     }
     return Snapshot(
@@ -112,19 +108,11 @@ class SlidingWindowDigest<T : TDigest<T>> constructor(
   @Synchronized fun mergeIn(windowDigests: List<WindowDigest<T>>) {
     deleteOlderDigests()
     for (wd in windowDigests) {
-      var found = false
-      for (existing in windows) {
-        if (existing.window == wd.window) {
-          wd.digest.mergeInto(existing.digest)
-          found = true
-          break
-        }
-      }
-      if (!found) {
-        val newDigest = WindowDigest(
-            wd.window,
-            tDigest()
-        )
+      val existing = windows.find { it.window == wd.window }
+      if (existing != null) {
+        wd.digest.mergeInto(existing.digest)
+      } else {
+        val newDigest = WindowDigest(wd.window, tDigest())
         windows.add(newDigest)
         wd.digest.mergeInto(newDigest.digest)
       }
@@ -149,24 +137,15 @@ class SlidingWindowDigest<T : TDigest<T>> constructor(
     if (gc) {
       deleteOlderDigests()
     }
-    val localWindows = windower.windowsContaining(now)
-    val digests: MutableList<WindowDigest<T>> = mutableListOf()
-    for (newWindow in localWindows) {
-      var found = false
-      for (existingWindow in windows) {
-        if (existingWindow.window == newWindow) {
-          found = true
-          digests.add(existingWindow)
-          break
-        }
-      }
-      if (!found) {
-        val newDigest = WindowDigest(
-            newWindow,
-            tDigest()
-        )
+
+    val digests = windower.windowsContaining(now).map { window: Window ->
+      val existing = windows.find { it.window == window }
+      if (existing == null) {
+        val newDigest = WindowDigest(window, tDigest())
         windows.add(newDigest)
-        digests.add(newDigest)
+        newDigest
+      } else {
+        existing
       }
     }
 

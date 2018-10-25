@@ -1,23 +1,24 @@
 package misk.digester
 
+import misk.time.FakeClock
 import org.assertj.core.api.Assertions.assertThat
 import org.junit.jupiter.api.Test
-import java.time.Clock
-import java.time.Instant
 import java.time.ZoneId
 import java.time.ZonedDateTime
+import java.util.SortedMap
+import java.util.concurrent.TimeUnit
 
 class SlidingWindowDigestTest {
-  private val baseClock: Clock = Clock.fixed(Instant.now(), ZoneId.of("UTC"))
+  private val baseClock: FakeClock = FakeClock()
 
   @Test
   fun slidingWindowDigestEmpty() {
     val digest = newSlidingWindowDigestTest()
     assertThat(digest.quantile(0.5)).isEqualTo(Double.NaN)
-    expectQuantiles(digest, 0, Double.NaN, emptyMap())
+    expectQuantiles(digest, 0, Double.NaN, sortedMapOf())
     advanceWindows(1, digest)
     assertThat(digest.quantile(0.5)).isEqualTo(Double.NaN)
-    expectQuantiles(digest, 0, Double.NaN, emptyMap())
+    expectQuantiles(digest, 0, Double.NaN, sortedMapOf())
   }
 
   @Test
@@ -41,7 +42,7 @@ class SlidingWindowDigestTest {
     advanceWindows(1, digest)
     assertThat(digest.quantile(0.5)).isEqualTo(30.0)
     expectQuantiles(digest, 3, 60.0,
-        mapOf(
+        sortedMapOf(
             0.25 to 30.0,
             0.5 to 30.0))
   }
@@ -100,7 +101,7 @@ class SlidingWindowDigestTest {
     advanceWindows(3, src)
     advanceWindows(3, dest)
     dest.mergeIn(
-        src.closedDigests(ZonedDateTime.ofInstant(src.utcNowClock.instant(), ZoneId.of("UTC"))))
+        src.closedDigests(ZonedDateTime.ofInstant(baseClock.instant(), ZoneId.of("UTC"))))
     assertThat(dest.windows.count()).isEqualTo(0)
   }
 
@@ -111,7 +112,7 @@ class SlidingWindowDigestTest {
     val windowsT0_2 = windows(dest)
     dest.observe(10.0)
     dest.mergeIn(
-        src.closedDigests(ZonedDateTime.ofInstant(src.utcNowClock.instant(), ZoneId.of("UTC"))))
+        src.closedDigests(ZonedDateTime.ofInstant(baseClock.instant(), ZoneId.of("UTC"))))
     expectWindowDigests(dest.windows, listOf(
         newWindowDigest(windowsT0_2[0], listOf(10.0)),
         newWindowDigest(windowsT0_2[1], listOf(10.0)),
@@ -121,17 +122,18 @@ class SlidingWindowDigestTest {
 
   @Test
   fun slidingWindowDigestMergeInValuesToValues() {
-    val src = newSlidingWindowDigestTest()
-    val dest = newSlidingWindowDigestTest()
-    val windowsT0_2 = windows(src)
+    val srcClock = FakeClock()
+    val destClock = FakeClock()
+    val src = newSlidingWindowDigestTest(srcClock)
+    val dest = newSlidingWindowDigestTest(destClock)
+    val windowsT0_2 = windows(src, srcClock)
     src.observe(100.0) // in t0-t2 buckets
-    val windowsT3_5 = advanceWindows(3, src)
+    val windowsT3_5 = advanceWindows(3, src, srcClock)
     src.observe(200.0) // in t3-t5 buckets
-    advanceWindows(3, src)
-    advanceWindows(1, dest)
+    advanceWindows(3, src, srcClock)
+    advanceWindows(1, dest, destClock)
     dest.observe(10.0) // in t1-t3 buckets
     assertThat(dest.openDigests(false).count()).isEqualTo(3)
-    dest.utcNowClock = src.utcNowClock
     dest.mergeIn(src.closedDigests(windowsT0_2[0].end))
     expectWindowDigests(dest.windows, listOf(
         newWindowDigest(windowsT0_2[0], listOf(100.0)),
@@ -148,8 +150,10 @@ class SlidingWindowDigestTest {
     val digest = newSlidingWindowDigestTest()
     digest.observe(10.0)
     // Move just past the threshold for collecting the last window
-    digest.utcNowClock = Clock.fixed(windows(digest)[2].end.plusMinutes(1).plusNanos(1).toInstant(),
-        ZoneId.of("UTC"))
+    baseClock.setNow(windows(digest)[2].end.toInstant())
+    baseClock.add(1, TimeUnit.MINUTES)
+    baseClock.add(1, TimeUnit.MILLISECONDS)
+
     digest.observe(20.0)
     val windows = windows(digest)
     expectWindowDigests(digest.windows, listOf(
@@ -159,22 +163,22 @@ class SlidingWindowDigestTest {
     ))
   }
 
-  fun setClock(t: ZonedDateTime, digest: SlidingWindowDigest<FakeDigest>) {
-    require(!t.toInstant().isBefore(digest.utcNowClock.instant())) {
+  fun setClock(t: ZonedDateTime, clock: FakeClock) {
+    require(!t.toInstant().isBefore(clock.instant())) {
       "Cannot go back in time"
     }
 
-    digest.utcNowClock = Clock.fixed(t.toInstant(), ZoneId.of("UTC"))
+    clock.setNow(t.toInstant())
   }
 
-  fun windows(slidingWindow: SlidingWindowDigest<FakeDigest>): List<Window> {
+  fun windows(slidingWindow: SlidingWindowDigest<FakeDigest>, clock: FakeClock = baseClock): List<Window> {
     return slidingWindow.windower.windowsContaining(
-        ZonedDateTime.ofInstant(slidingWindow.utcNowClock.instant(), ZoneId.of("UTC")))
+        ZonedDateTime.ofInstant(clock.instant(), ZoneId.of("UTC")))
   }
 
-  fun advanceWindows(n: Int, digest: SlidingWindowDigest<FakeDigest>): List<Window> {
+  fun advanceWindows(n: Int, digest: SlidingWindowDigest<FakeDigest>, clock: FakeClock = baseClock): List<Window> {
     repeat(n) {
-      setClock(windows(digest)[0].end, digest)
+      setClock(windows(digest)[0].end, clock)
     }
     return windows(digest)
   }
@@ -186,11 +190,11 @@ class SlidingWindowDigestTest {
     )
   }
 
-  fun newSlidingWindowDigestTest(): SlidingWindowDigest<FakeDigest> {
+  fun newSlidingWindowDigestTest(clock: FakeClock = baseClock): SlidingWindowDigest<FakeDigest> {
     return SlidingWindowDigest(
         Windower(10, 3),
         fun() = FakeDigest(),
-        baseClock
+        clock
     )
   }
 
@@ -214,21 +218,11 @@ class SlidingWindowDigestTest {
     digest: SlidingWindowDigest<FakeDigest>,
     count: Long,
     sum: Double,
-    quantileVals: Map<Double, Double>
+    quantileVals: SortedMap<Double, Double>
   ) {
-    val snapshot = digest.snapshot(quantileVals.keys.toList())
+    val snapshot = digest.snapshot(quantileVals.keys.toList()) //should this be keys or values?
     assertThat(snapshot.count).isEqualTo(count)
-    assertEqualish(sum, snapshot.sum)
-    quantileVals.keys.forEachIndexed { i, q ->
-      assertEqualish(quantileVals[q], snapshot.quantileVals[i])
-    }
-  }
-
-  fun assertEqualish(a: Double?, b: Double) {
-    if (a == Double.NaN) {
-      assertThat(b).isNaN()
-    } else {
-      assertThat(a).isEqualTo(b)
-    }
+    assertThat(snapshot.sum).isEqualTo(sum)
+    assertThat(snapshot.quantileVals.toDoubleArray()).isEqualTo(quantileVals.values.toDoubleArray())
   }
 }
