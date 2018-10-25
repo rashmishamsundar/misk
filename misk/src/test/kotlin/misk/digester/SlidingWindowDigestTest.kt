@@ -178,9 +178,9 @@ class SlidingWindowDigestTest {
 
   fun advanceWindows(n: Int, digest: SlidingWindowDigest<FakeDigest>, clock: FakeClock = baseClock): List<Window> {
     repeat(n) {
-      setClock(windows(digest)[0].end, clock)
+      setClock(windows(digest, clock)[0].end, clock)
     }
-    return windows(digest)
+    return windows(digest, clock)
   }
 
   fun newWindowDigest(window: Window, values: List<Double>): WindowDigest<FakeDigest> {
