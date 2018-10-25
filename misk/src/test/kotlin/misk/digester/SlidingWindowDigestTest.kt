@@ -224,7 +224,7 @@ class SlidingWindowDigestTestingSuite {
     quantileVals: SortedMap<Double, Double>
   ) {
     val snapshot =
-        slidingWindowDigest.snapshot(quantileVals.keys.toList()) //should this be keys or values?
+        slidingWindowDigest.snapshot(quantileVals.keys.toList())
     assertThat(snapshot.count).isEqualTo(count)
     assertThat(snapshot.sum).isEqualTo(sum)
     assertThat(snapshot.quantileVals.toDoubleArray()).isEqualTo(quantileVals.values.toDoubleArray())
